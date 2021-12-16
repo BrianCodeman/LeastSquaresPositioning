@@ -1,5 +1,4 @@
 ﻿using LeastSquaresPositioning;
-using Position;
 
 namespace Tests;
 

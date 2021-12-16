@@ -1,62 +1,71 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
-using Position;
 
 namespace LeastSquaresPositioning;
 
 public class Satellites
 {
-    public Point P1 { get;  }
-    public Point P2 { get;  }
-    public Point P3 { get;  }
-    public Point P4 { get;  }
+    public IList<Point> Points { get; }
 
-    public Satellites(Point p1, Point p2, Point p3, Point p4 )
+    public Satellites(IList<Point> points)
     {
-        P1 = p1;
-        P2 = p2;
-        P3 = p3;
-        P4 = p4;
+        Points = points is null ? throw new NullReferenceException() :
+            points.Count < 4 ? throw new ArgumentException("It should be more than four satellites.") : points;
     }
-    
-    public Point Calculate(double d1, double d2, double d3, double d4)
+
+    public void SetDistances(IList<double> distances)
+    {
+        if (distances?.Count != Points.Count)
+        {
+            throw new ArgumentException("Counts of distances do not match counts of satellites.");
+        }
+
+        for (int i = 0; i < Points.Count; i++)
+        {
+            Points[i].Distance = distances[i];
+        }
+    }
+
+    public Point Calculate()
     {
         DenseMatrix A = GetMatrixA();
-        DenseMatrix B = GetMatrixB(d1,d2,d3,d4);
+        DenseMatrix B = GetMatrixB();
         Matrix<double> X = (A.Transpose() * A).Inverse() * (A.Transpose() * B);
-        
-        return new (X[0, 0], X[1, 0], X[2, 0]);
+
+        return new(X[0, 0], X[1, 0], X[2, 0]);
     }
 
     private DenseMatrix GetMatrixA()
     {
-        return new(3, 3)
+        int dimension = Points.Count() - 1;
+        DenseMatrix matrix = new(dimension, 3);
+
+        for (int i = 0; i < dimension; i++)
         {
-            [0, 0] = P2.X - P1.X,
-            [0, 1] = P2.Y - P1.Y,
-            [0, 2] = P2.Z - P1.Z,
-            [1, 0] = P3.X - P2.X,
-            [1, 1] = P3.Y - P2.Y,
-            [1, 2] = P3.Z - P2.Z,
-            [2, 0] = P4.X - P3.X,
-            [2, 1] = P4.Y - P3.Y,
-            [2, 2] = P4.Z - P3.Z
-        };
-    }
-    
-    private DenseMatrix GetMatrixB(double d1, double d2, double d3, double d4)
-    {
-        return 0.5 * new DenseMatrix(3, 1)
-        {
-            [0, 0] = GetMatrixBElement(d1,d2,P1,P2),
-            [1, 0] = GetMatrixBElement(d2,d3,P2,P3),
-            [2, 0] = GetMatrixBElement(d3,d4,P3,P4),
-        };
+            matrix[i, 0] = Points[i + 1].X - Points[i].X;
+            matrix[i, 1] = Points[i + 1].Y - Points[i].Y;
+            matrix[i, 2] = Points[i + 1].Z - Points[i].Z;
+        }
+
+        return matrix;
     }
 
-    private double GetMatrixBElement(double d1, double d2, Point p1, Point p2)
+    private DenseMatrix GetMatrixB()
     {
-        return d1.Pow() - d2.Pow() +
+        int dimension = Points.Count() - 1;
+        DenseMatrix matrix = new(dimension, 1);
+
+        for (int i = 0; i < dimension; i++)
+        {
+            matrix[i, 0] = GetMatrixBElement(Points[i], Points[i + 1]);
+        }
+
+        return 0.5 * matrix;
+    }
+
+    private double GetMatrixBElement(Point p1, Point p2)
+    {
+        return p1.Distance.Pow() - p2.Distance.Pow() +
                (p2.X.Pow() + p2.Y.Pow() + p2.Z.Pow()) -
                (p1.X.Pow() + p1.Y.Pow() + p1.Z.Pow());
     }
